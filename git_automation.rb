@@ -30,6 +30,8 @@ class GitAutomation < Thor
     branch_name = ask_branch_name
     merge_to = ask_choice("Merge to (D: develop, S: staging, M: master): ", ['d', 's', 'm'])
     pr_title = ask("Enter the PR title (Leave blank to use first commit message): ")
+    draft = ask_yes_no("Create a draft PR? (Y/N): ")
+    dry_run = ask_yes_no("Dry run? (Y/N): ")
 
     prefix = case merge_to
               when 'd'
@@ -40,35 +42,39 @@ class GitAutomation < Thor
                 ''
               end
 
+    remote_base_branch = case merge_to
+                          when 'd'
+                            'develop'
+                          when 's'
+                            'staging'
+                          when 'm'
+                            'master'
+                        end
+
     branch_name = branch_name.strip
     branch_name = "#{prefix}/#{branch_name}" if prefix != ''
 
-    pr_title = `git log --format=%B -n 1 #{branch_name}`.strip if pr_title == ''
+    jira_ticket = branch_name.match(JIRA_TICKET_REGEX)
+    jira_ticket_link = jira_ticket ? "[#{jira_ticket}](#{JIRA_TICKET_LINK}/#{jira_ticket})" : ''
+
+    if pr_title == ''
+      Dir.chdir(PROJECT_PATH) do
+        pr_title = `git checkout #{branch_name} && git log --no-merges --format=%B #{remote_base_branch}..#{branch_name} | head -n 1`.strip
+      end
+    end
 
     if pr_title !~ JIRA_PREFIX_REGEX
       branch_prefix = branch_name.match(JIRA_PREFIX_REGEX)
       pr_title = "#{branch_prefix} - #{pr_title}" if branch_prefix
     end
 
-    remote_base_branch = case merge_to
-              when 'd'
-                'develop'
-              when 's'
-                'staging'
-              when 'm'
-                'master'
-            end
-
-    jira_ticket = branch_name.match(JIRA_TICKET_REGEX)
-    jira_ticket_link = jira_ticket ? "[#{jira_ticket}](#{JIRA_TICKET_LINK}/#{jira_ticket})" : ''
-
     commands = [
       "git checkout #{branch_name}",
       "git push origin #{branch_name}",
-      "gh pr create --title '#{pr_title}' --body #{jira_ticket_link} --label '#{remote_base_branch}' --base #{remote_base_branch} --head #{branch_name}"
+      "gh pr create --title '#{pr_title}' --body '#{jira_ticket_link}' --label '#{remote_base_branch}' --base '#{remote_base_branch}' --head #{branch_name} #{draft ? '--draft' : ''} #{dry_run ? '--dry-run' : ''}"
     ]
 
-    commands << "gh pr view --json url --jq '.url'"
+    # commands << "gh pr view --json url --jq '.url'"
     execute_in_project_dir(commands)
 
     puts "Done!"
@@ -124,6 +130,10 @@ class GitAutomation < Thor
       Dir.chdir(PROJECT_PATH) do
         execute_commands(commands)
       end
+    end
+
+    def pull_request_title(branch_name)
+
     end
 
     def ask_branch_name
