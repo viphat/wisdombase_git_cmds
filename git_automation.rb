@@ -88,13 +88,20 @@ class GitAutomation < Thor
     push_to = ask_choice("Push to (D: develop, S: staging, A: both): ", ['d', 's', 'a'])
     delete_branch_if_exists = ask_yes_no("Delete branch if exists? (Y/N): ")
 
+    sync_with_remote =
+      if delete_branch_if_exists
+        ask_yes_no("Sync with remote? (Y/N): ")
+      else
+        false
+      end
+
     commands = [
       "git checkout #{branch_name}",
       "git push origin #{branch_name}#{with_force ? ' --force-with-lease' : ''}"
     ]
 
-    add_branch_commands(commands, 'dev', 'develop', branch_name, delete_branch_if_exists, with_force) if ['d', 'a'].include?(push_to)
-    add_branch_commands(commands, 'stg', 'staging', branch_name, delete_branch_if_exists, with_force) if ['s', 'a'].include?(push_to)
+    add_branch_commands(commands, 'dev', 'develop', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['d', 'a'].include?(push_to)
+    add_branch_commands(commands, 'stg', 'staging', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['s', 'a'].include?(push_to)
 
     commands << "git checkout #{branch_name}"
 
@@ -152,7 +159,7 @@ class GitAutomation < Thor
       answer.downcase
     end
 
-    def add_branch_commands(commands, prefix, remote_base_branch, branch_name, delete_branch_if_exists, with_force)
+    def add_branch_commands(commands, prefix, remote_base_branch, branch_name, delete_branch_if_exists, with_force, sync_with_remote)
       commands << "git checkout #{remote_base_branch}"
       commands << "git pull origin #{remote_base_branch}"
 
@@ -164,7 +171,7 @@ class GitAutomation < Thor
           commands << "git checkout -b #{prefix}/#{branch_name}"
         else
           commands << "git checkout #{prefix}/#{branch_name}"
-          commands << "git merge #{remote_base_branch} --no-edit"
+          commands << "git merge #{remote_base_branch} --no-edit" if sync_with_remote
         end
       else
         commands << "git checkout -b #{prefix}/#{branch_name}"
