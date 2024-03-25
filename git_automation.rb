@@ -65,7 +65,7 @@ class GitAutomation < Thor
 
     if pr_title !~ JIRA_PREFIX_REGEX
       branch_prefix = branch_name.match(JIRA_PREFIX_REGEX)
-      pr_title = "#{branch_prefix} - #{pr_title}" if branch_prefix
+      pr_title = "#{branch_prefix}-#{pr_title}" if branch_prefix
     end
 
     commands = [
@@ -130,10 +130,6 @@ class GitAutomation < Thor
       Dir.chdir(PROJECT_PATH) do
         execute_commands(commands)
       end
-    end
-
-    def pull_request_title(branch_name)
-
     end
 
     def ask_branch_name

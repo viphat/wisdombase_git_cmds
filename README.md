@@ -1,10 +1,12 @@
 # WisdomBase Git Automate Commands
 
-Some Git commands that frequently used in WisdomBase project.
+Automate some git commands that frequently used in WisdomBase Project.
 
 ## Usage
 
-- Using Ruby with `thor` and `open3` to build a cli app.
+- Install Ruby (Tested with Ruby 2.7) with `thor` and `open3` gems.
+
+### Commands
 
 - `wisdombase_create_working_branch`
 - `wisdombase_git_workflow`
