@@ -111,7 +111,30 @@ class GitAutomation < Thor
 
   desc "wisdombase_post_release", "Automate post-release process for Wisdombase project."
   def wisdombase_post_release
-    commands = [
+    commands = []
+
+    branch_name = `git rev-parse --abbrev-ref HEAD`.strip
+
+    # Check if there are any uncommitted changes
+    uncommitted_changes = `git status --porcelain`.strip
+    # check if there are untracked files
+    untracked_files = `git ls-files --others --exclude-standard`.strip
+    stash_changes = false
+
+    if untracked_files != '' || uncommitted_changes != ''
+      # Ask user if they want to stash the changes or commit themselves
+      stash_changes = ask_yes_no("There are untracked files/uncommitted changes. Do you want to stash them? (Y/N): ")
+
+      if stash_changes
+        commands << "git add -A"
+        commands << "git stash"
+      else
+        puts "Please commit or stash your changes first."
+        exit 1
+      end
+    end
+
+    commands += [
       "git checkout release",
       "git pull origin release",
       "git checkout master",
@@ -126,7 +149,14 @@ class GitAutomation < Thor
       "git pull origin develop",
       "git merge staging --no-edit",
       "git push origin develop",
+      "git checkout stable",
+      "git pull origin stable",
+      "git checkout #{branch_name}"
     ]
+
+    if stash_changes
+      commands << "git stash pop"
+    end
 
     execute_in_project_dir(commands)
     puts "Done!"
