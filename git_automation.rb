@@ -170,7 +170,13 @@ class GitAutomation < Thor
     end
 
     def ask_branch_name
-      ask("Enter the branch name: ")
+      branch_name = ''
+
+      until branch_name != ''
+        branch_name = ask("Enter the branch name: ")
+      end
+
+      branch_name
     end
 
     def ask_yes_no(question)
