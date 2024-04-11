@@ -85,8 +85,10 @@ class GitAutomation < Thor
   def wisdombase_git_workflow
     branch_name = ask_branch_name
     with_force = ask_yes_no("Do you want to force push? (Y/N): ")
-    push_to = ask_choice("Push to (D: develop, S: staging, A: both): ", ['d', 's', 'a'])
-    delete_branch_if_exists = ask_yes_no("Delete branch if exists? (Y/N): ")
+    push_to = ask_choice("Push to (D: develop, S: staging, A: both staging and develop, M: master): ", ['d', 's', 'a', 'm'])
+    delete_branch_if_exists = false
+
+    delete_branch_if_exists = ask_yes_no("Delete branch if exists? (Y/N): ") unless push_to == 'm'
 
     sync_with_remote =
       if delete_branch_if_exists
@@ -102,6 +104,14 @@ class GitAutomation < Thor
 
     add_branch_commands(commands, 'dev', 'develop', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['d', 'a'].include?(push_to)
     add_branch_commands(commands, 'stg', 'staging', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['s', 'a'].include?(push_to)
+
+    if push_to == 'm'
+      commands << "git checkout master"
+      commands << "git pull origin master"
+      commands << "git checkout #{branch_name}"
+      commands << "git merge master --no-edit"
+      commands << "git push origin #{branch_name}#{with_force ? ' --force-with-lease' : ''}"
+    end
 
     commands << "git checkout #{branch_name}"
 
