@@ -84,8 +84,8 @@ class GitAutomation < Thor
   desc "wisdombase_git_workflow", "Automate git workflow for Wisdombase project."
   def wisdombase_git_workflow
     branch_name = ask_branch_name
-    with_force = ask_yes_no("Do you want to force push? (Y/N): ")
     push_to = ask_choice("Push to (D: develop, S: staging, A: both staging and develop, M: master): ", ['d', 's', 'a', 'm'])
+    with_force = ask_yes_no("Do you want to force push? (Y/N): ")
     delete_branch_if_exists = false
 
     delete_branch_if_exists = ask_yes_no("Delete branch if exists? (Y/N): ") unless push_to == 'm'
@@ -102,15 +102,15 @@ class GitAutomation < Thor
       "git push origin #{branch_name}#{with_force ? ' --force-with-lease' : ''}"
     ]
 
-    add_branch_commands(commands, 'dev', 'develop', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['d', 'a'].include?(push_to)
-    add_branch_commands(commands, 'stg', 'staging', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['s', 'a'].include?(push_to)
-
     if push_to == 'm'
       commands << "git checkout master"
       commands << "git pull origin master"
       commands << "git checkout #{branch_name}"
       commands << "git merge master --no-edit"
       commands << "git push origin #{branch_name}#{with_force ? ' --force-with-lease' : ''}"
+    else
+      create_branch_commands(commands, 'dev', 'develop', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['d', 'a'].include?(push_to)
+      create_branch_commands(commands, 'stg', 'staging', branch_name, delete_branch_if_exists, with_force, sync_with_remote) if ['s', 'a'].include?(push_to)
     end
 
     commands << "git checkout #{branch_name}"
@@ -182,8 +182,11 @@ class GitAutomation < Thor
     def ask_branch_name
       branch_name = ''
 
-      until branch_name != ''
-        branch_name = ask("Enter the branch name: ")
+      branch_name = ask("Enter the branch name (Leave empty to get current branch): ")
+
+      # Get current branch
+      if branch_name == ''
+        branch_name = `git rev-parse --abbrev-ref HEAD`.strip
       end
 
       branch_name
@@ -205,7 +208,7 @@ class GitAutomation < Thor
       answer.downcase
     end
 
-    def add_branch_commands(commands, prefix, remote_base_branch, branch_name, delete_branch_if_exists, with_force, sync_with_remote)
+    def create_branch_commands(commands, prefix, remote_base_branch, branch_name, delete_branch_if_exists, with_force, sync_with_remote)
       commands << "git checkout #{remote_base_branch}"
       commands << "git pull origin #{remote_base_branch}"
 
