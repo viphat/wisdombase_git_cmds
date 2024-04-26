@@ -74,6 +74,7 @@ class GitAutomation < Thor
       "gh pr create --title '#{pr_title}' --body '#{jira_ticket_link}' --label '#{remote_base_branch}' --base '#{remote_base_branch}' --head #{branch_name} #{draft ? '--draft' : ''} #{dry_run ? '--dry-run' : ''}"
     ]
 
+    commands << "git checkout #{branch_name}"
     # commands << "gh pr view --json url --jq '.url'"
     execute_in_project_dir(commands)
 
