@@ -1,11 +1,13 @@
 require 'thor'
 require 'open3'
+require 'date'
 
 class GitAutomation < Thor
   PROJECT_PATH = '/Users/viphat/projects/sharewis/sharewis-act'
   JIRA_PREFIX_REGEX = /(SWWB|FDT)/
   JIRA_TICKET_REGEX = /(SWWB|FDT)-\d+/
   JIRA_TICKET_LINK = 'https://share-wis.atlassian.net/browse'
+  JIRA_WISDOMBASE_RELEASE_LINK = 'https://share-wis.atlassian.net/projects/SWWB/versions/{{RELEASE_ID}}/tab/release-report-all-issues'
 
   desc "wisdombase_create_working_branch", "Automate creating a working branch for Wisdombase project."
   def wisdombase_create_working_branch
@@ -27,7 +29,7 @@ class GitAutomation < Thor
 
   desc "wisdombase_create_pull_request", "Automate creating a PR for Wisdombase project."
   def wisdombase_create_pull_request
-    branch_name = ask_branch_name
+    origin_branch_name = ask_branch_name
     merge_to = ask_choice("Merge to (D: develop, S: staging, M: master): ", ['d', 's', 'm'])
     pr_title = ask("Enter the PR title (Leave blank to use first commit message): ")
     draft = ask_yes_no("Create a draft PR? (Y/N): ")
@@ -51,7 +53,7 @@ class GitAutomation < Thor
                             'master'
                         end
 
-    branch_name = branch_name.strip
+    branch_name = origin_branch_name.strip
     branch_name = "#{prefix}/#{branch_name}" if prefix != ''
 
     jira_ticket = branch_name.match(JIRA_TICKET_REGEX)
@@ -74,7 +76,7 @@ class GitAutomation < Thor
       "gh pr create --title '#{pr_title}' --body '#{jira_ticket_link}' --label '#{remote_base_branch}' --base '#{remote_base_branch}' --head #{branch_name} #{draft ? '--draft' : ''} #{dry_run ? '--dry-run' : ''}"
     ]
 
-    commands << "git checkout #{branch_name}"
+    commands << "git checkout #{origin_branch_name}"
     # commands << "gh pr view --json url --jq '.url'"
     execute_in_project_dir(commands)
 
@@ -173,6 +175,57 @@ class GitAutomation < Thor
     puts "Done!"
   end
 
+  desc "wisdombase_create_release_pr", "Automate creating release PR for Wisdombase project."
+  def wisdombase_create_release_pr
+    jira_release_id = ask("Enter the Jira Release ID: ")
+    pr_title = ask("Enter the PR title (Or leave it empty to use the automated generated title): ")
+
+    if pr_title == ''
+      today = Date.today
+      pr_title = "Release Production - #{today.strftime('%Y-%m-%d')} - v#{jira_release_id}"
+    end
+
+    body_link = "[#{jira_release_id}](#{JIRA_WISDOMBASE_RELEASE_LINK.gsub('{{RELEASE_ID}}', jira_release_id)})"
+
+    commands = [
+      "gh pr create --title '#{pr_title}' --body 'Release Production - #{body_link}' --base 'release' --head 'master'"
+    ]
+
+    execute_in_project_dir(commands)
+
+    puts "Done!"
+  end
+
+  desc "wisdombase_create_stable_release_pr", "Automate creating release branch for Wisdombase project (Stable Env)."
+  def wisdombase_create_stable_release_pr
+    jira_release_id = ask("Enter the Jira Release ID: ")
+    stable_release_branch_name = ask("Enter the branch name to merge to stable (Or leave it empty to use the automated generated branch name): ")
+    pr_title = ask("Enter the PR title (Or leave it empty to use the automated generated title): ")
+
+    today = Date.today
+
+    if pr_title == ''
+      pr_title = "Release Stable - #{today.strftime('%Y-%m-%d')} - v#{jira_release_id}"
+    end
+
+    if stable_release_branch_name == ''
+      stable_release_branch_name = "stable-#{today.strftime('%Y-%m-%d')}"
+      puts "Stable Release Branch Name: #{stable_release_branch_name}"
+      puts "Please confirm the branch name is correct (Y/N): "
+      confirm = ask_yes_no
+      exit 1 unless confirm
+    end
+
+    body_link = "[#{jira_release_id}](#{JIRA_WISDOMBASE_RELEASE_LINK.gsub('{{RELEASE_ID}}', jira_release_id)})"
+
+    commands = [
+      "gh pr create --title '#{pr_title}' --body 'Release Stable - #{body_link}' --base 'stable' --head '#{stable_release_branch_name}'"
+    ]
+
+    execute_in_project_dir(commands)
+    puts "Done!"
+  end
+
   no_commands do
     def execute_in_project_dir(commands)
       Dir.chdir(PROJECT_PATH) do
@@ -195,10 +248,10 @@ class GitAutomation < Thor
 
     def ask_yes_no(question)
       answer = ''
-      until ['y', 'n'].include?(answer.downcase)
+      until ['y', 'n', ''].include?(answer.downcase)
         answer = ask(question)
       end
-      answer.downcase == 'y'
+      answer.downcase == 'y' && !answer.empty?
     end
 
     def ask_choice(question, choices)
