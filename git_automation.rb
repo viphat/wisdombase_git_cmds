@@ -247,7 +247,7 @@ class GitAutomation < Thor
     end
 
     def ask_yes_no(question)
-      answer = ''
+      answer = nil
       until ['y', 'n', ''].include?(answer.downcase)
         answer = ask(question)
       end
