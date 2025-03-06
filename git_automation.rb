@@ -211,14 +211,14 @@ class GitAutomation < Thor
     if stable_release_branch_name == ''
       stable_release_branch_name = "stable-#{today.strftime('%Y-%m-%d')}"
       puts "Stable Release Branch Name: #{stable_release_branch_name}"
-      puts "Please confirm the branch name is correct (Y/N): "
-      confirm = ask_yes_no
+      confirm = ask_yes_no("Please confirm the branch name is correct (Y/N): ")
       exit 1 unless confirm
     end
 
     body_link = "[#{jira_release_id}](#{JIRA_WISDOMBASE_RELEASE_LINK.gsub('{{RELEASE_ID}}', jira_release_id)})"
 
     commands = [
+      "git push origin #{stable_release_branch_name}",
       "gh pr create --title '#{pr_title}' --body 'Release Stable - #{body_link}' --base 'stable' --head '#{stable_release_branch_name}'"
     ]
 
